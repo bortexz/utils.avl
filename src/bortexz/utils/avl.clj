@@ -263,7 +263,7 @@
    
    E.g. find the maximum value and its rank of a sorted-map bounded by 2 ranks, returning first value found for the max
    value:
-   `(test-vals sm > {:start-rank 1 :end-rank 10})` (if >= then latest max-value is returned)
+   `(find-val sm > {:start-rank 1 :end-rank 10})` (if >= used then latest max-value is returned)
    "
   ([sm testf] (find-val sm testf {}))
   ([sm testf {:keys [start-rank end-rank] :or {start-rank 0 end-rank (dec (count sm))}}]
