@@ -191,41 +191,41 @@
                (persistent!))))))
 
 (def full-tail
-  ^{:doc 
+  ^{:doc
     "Like [[tail]] but only returns the tail vector when it has `n` non-nil value items, nil otherwise.
      Only works for sorted-maps (it checks existance of values).
      Sometimes when you're building incremental series you might not want to do anything until you have
      a certain amount of non-nil values of your source. By calling full-tail, you avoid having to check 
      `(every? some? tail)`, and can do something like this `(when-let [tail (full-tail sm n)] ... )` and
      be sure you have n non-nil values on the tail."
-    :arglists '([sc n] [sc n end-k])}
+    :arglists '([sm n] [sm n end-k])}
   (-full-tail-vec-fn identity))
 
 (def full-tail-keys
   ^{:doc "Faster (some->> (full-tail sc n) (mapv key)). See [[full-tail]]"
-    :arglists '([sc n] [sc n end-k])}
+    :arglists '([sm n] [sm n end-k])}
   (-full-tail-vec-fn key))
 
 (def full-tail-vals
   ^{:doc "Faster (some->> (full-tail sc n) (mapv val)). See [[full-tail]]"
-    :arglists '([sc n] [sc n end-k])}
+    :arglists '([sm n] [sm n end-k])}
   (-full-tail-vec-fn val))
 
 (defn full-tail-sorted
   "Faster (some->> (full-tail sc n) (into (avl/sorted-map))). See [[full-tail]]"
-  ([sc n]
-   (bc/when-let [lk (last-key sc)]
-     (full-tail-sorted sc n lk)))
-  ([sc n end-k]
-   (bc/when-let [end   (avl/rank-of sc end-k)
+  ([sm n]
+   (bc/when-let [lk (last-key sm)]
+     (full-tail-sorted sm n lk)))
+  ([sm n end-k]
+   (bc/when-let [end   (avl/rank-of sm end-k)
                  start (- end (dec n))
                  _     (nat-int? start)]
      (some-> (reduce (fn [xs k]
-                       (bc/if-let [item (nth sc k)
+                       (bc/if-let [item (nth sm k)
                                    _?   (some? (val item))]
                          (conj! xs item)
                          (reduced nil)))
-                     (transient (avl/sorted-map-by (.comparator sc)))
+                     (transient (avl/sorted-map-by (.comparator sm)))
                      (range start (inc end)))
              (persistent!)))))
 
@@ -250,3 +250,31 @@
   []
   (datafy-avl-maps!)
   (datafy-avl-sets!))
+
+(defn find-val
+  "Iterates over sorted-map `sm` testing vals against previous found val using 2-arity `testf`, fn accepting new
+   val and previously found val. if `testf` returns logical true, then the new tested val will be the found val, used to
+   test against following vals. Iteration starts on the second val, and the first val is used as the starting found val.
+   
+   Can optionally specify a map of options including:
+  - `start-rank` start rank of the iteration (included). Defaults to 0.
+  - `end-rank` last rank of the iteration (included). Defaults to latest-rank `(dec (count sm))`
+   
+   Returns a tuple [found-rank found-val].
+   
+   E.g. find the maximum value and its rank of a sorted-map bounded by 2 ranks, returning first value found for the max
+   value:
+   `(test-vals sm > {:start-rank 1 :end-rank 10})` (if >= then latest max-value is returned)
+   "
+  ([sm testf] (find-val sm testf {}))
+  ([sm testf {:keys [start-rank end-rank] :or {start-rank 0 end-rank (dec (count sm))}}]
+   (bc/when-let [init-val  (nth-val sm start-rank)]
+     (let [curr-v (volatile! init-val)
+           curr-r (volatile! start-rank)]
+       (run! (fn [r]
+               (let [v (nth-val sm r)]
+                 (when (testf v @curr-v)
+                   (vreset! curr-v v)
+                   (vreset! curr-r r))))
+             (range (inc start-rank) (inc end-rank)))
+       [@curr-r @curr-v]))))

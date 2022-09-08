@@ -154,3 +154,10 @@
   (testing "full-tail-sorted"
     (is (= (avl/sorted-map 3 4 5 6) (u-avl/full-tail-sorted sm 2)))
     (is (nil? (u-avl/full-tail-sorted (avl/sorted-map 1 2 3 4) 3)))))
+
+(deftest test-vals-test
+  (testing "test-vals"
+    (is (= [0 2] (u-avl/find-val sm <=)))
+    (is (= [2 6] (u-avl/find-val sm >=)))
+    (is (= [1 4] (u-avl/find-val sm <= {:start-rank 1})))
+    (is (= [1 4] (u-avl/find-val sm >= {:end-rank 1})))))

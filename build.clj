@@ -1,13 +1,13 @@
 (ns build
   (:refer-clojure :exclude [test])
-  (:require [clojure.tools.build.api :as b] ; for b/git-count-revs
-            [clojure.edn :as edn]
-            [org.corfield.build :as bb]))
+  (:require [org.corfield.build :as bb]))
 
-(def release (edn/read-string (slurp "release.edn")))
+(def lib 'io.github.bortexz/utils.avl)
+(def version "0.0.2")
 
-(def lib (symbol (:group-id release) (:artifact-id release)))
-(def version (:version release))
+(defn- gha-output
+  [k v]
+  (println (str "::set-output name=" k "::" v)))
 
 (defn test "Run the tests." [opts]
   (bb/run-tests opts))
@@ -17,7 +17,7 @@
       (assoc :lib lib :version version)
       (bb/run-tests)
       (bb/clean)
-      (assoc :src-pom "template/pom.xml")
+      (assoc :src-pom "pom-template.xml")
       (bb/jar)))
 
 (defn install "Install the JAR locally." [opts]
@@ -28,9 +28,5 @@
 (defn deploy "Deploy the JAR to Clojars." [opts]
   (-> opts
       (assoc :lib lib :version version)
-      (bb/deploy)))
-
-(defn tag-version
-  "Creates a new git lightweight tag with the current version."
-  [_]
-  (b/git-process {:git-args ["tag" (str "v" version)]}))
+      (bb/deploy))
+  (gha-output "version" version))
