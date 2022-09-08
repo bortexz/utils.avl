@@ -255,12 +255,11 @@
   "Iterates over sorted-map `sm` testing vals against previous found val using 2-arity `testf`, fn accepting new
    val and previously found val. if `testf` returns logical true, then the new tested val will be the found val, used to
    test against following vals. Iteration starts on the second val, and the first val is used as the starting found val.
+   Only tests non-nil values. Returns a tuple [found-rank found-val] if val is non-nil, nil otherwise.
    
    Can optionally specify a map of options including:
-  - `start-rank` start rank of the iteration (included). Defaults to 0.
-  - `end-rank` last rank of the iteration (included). Defaults to latest-rank `(dec (count sm))`
-   
-   Returns a tuple [found-rank found-val].
+   - `start-rank` start rank of the iteration (included). Defaults to 0.
+   - `end-rank` last rank of the iteration (included). Defaults to latest-rank `(dec (count sm))`
    
    E.g. find the maximum value and its rank of a sorted-map bounded by 2 ranks, returning first value found for the max
    value:
@@ -272,9 +271,10 @@
      (let [curr-v (volatile! init-val)
            curr-r (volatile! start-rank)]
        (run! (fn [r]
-               (let [v (nth-val sm r)]
+               (when-let [v (nth-val sm r)]
                  (when (testf v @curr-v)
                    (vreset! curr-v v)
                    (vreset! curr-r r))))
              (range (inc start-rank) (inc end-rank)))
-       [@curr-r @curr-v]))))
+       (when @curr-v
+         [@curr-r @curr-v])))))
